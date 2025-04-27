@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>LabNavigator AI - MVP Dashboard</title>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; padding: 20px; max-width: 1200px; margin: auto; color: #333; }
+        h1, h2, h3 { color: #333; }
+        .container { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+        @media (max-width: 768px) {
+            .container { grid-template-columns: 1fr; }
+        }
+        .section { border: 1px solid #ddd; padding: 15px; border-radius: 5px; background-color: #f9f9f9; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .suggestion-box, .result-box, .best-box, .importance-box { margin-bottom: 20px; }
+        button, input[type=submit] { padding: 10px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; }
+        button:hover, input[type=submit]:hover { background-color: #0056b3; }
+        input[type=number] { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        .plot-container img { max-width: 100%; height: auto; border: 1px solid #ddd; margin-top: 15px; }
+        .disabled-button { background-color: #ccc; cursor: not-allowed; }
+        .highlight { background-color: #e7f3ff; border-left: 5px solid #007bff; padding: 10px; margin-bottom: 15px; }
+        pre { background-color: #eee; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        .header { background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin-bottom: 20px; border-bottom: 3px solid #007bff; }
+        .logo { font-weight: bold; font-size: 1.5em; color: #007bff; }
+        .importance-bar { height: 20px; background-color: #007bff; margin-top: 5px; border-radius: 3px; }
+        .kb-badge { background-color: #28a745; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.8em; margin-left: 5px; }
+        .footer { text-align: center; margin-top: 30px; font-size: 0.9em; color: #666; }
+        .tab-container { margin-bottom: 20px; }
+        .tab-buttons { display: flex; margin-bottom: -1px; }
+        .tab-button { padding: 10px 15px; border: 1px solid #ddd; background-color: #f1f1f1; cursor: pointer; }
+        .tab-button.active { background-color: #fff; border-bottom: 1px solid #fff; }
+        .tab-content { border: 1px solid #ddd; padding: 15px; background-color: #fff; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">LabNavigator AI</div>
+        <p>Optimizing CRISPR Gene Editing Experiments for Cancer Research</p>
+    </div>
+
+    <div class="container">
+        <div class="section interaction-section">
+            <h2>Experiment Control</h2>
+
+            {% if suggested_params %}
+                <div class="suggestion-box highlight">
+                    <h3>Next Suggested Experiment:</h3>
+                    <p>Please run the experiment with the following parameters and record the outcome:</p>
+                    <ul>
+                        {% for name, value in suggested_params.items() %}
+                            <li><strong>{{ name }}:</strong> {{ value }}</li>
+                        {% endfor %}
+                    </ul>
+                    <form action="{{ url_for('record') }}" method="post">
+                        <input type="hidden" name="suggestion_index" value="{{ last_suggestion_index }}">
+                        <input type="hidden" name="params_list" value="{{ suggested_params_list | string }}">
+                        <label for="outcome">Enter Outcome (e.g., Editing Efficiency %):</label><br>
+                        <input type="number" id="outcome" name="outcome" step="any" min="0" max="100" required>
+                        <input type="submit" value="Record Result">
+                    </form>
+                </div>
+                <form action="{{ url_for('suggest') }}" method="post">
+                    <button type="submit" class="disabled-button" disabled>Suggest Next Experiment (Complete current first)</button>
+                </form>
+            {% else %}
+                <div class="suggestion-box">
+                    <p>Click the button below to get the first/next experiment suggestion.</p>
+                    <form action="{{ url_for('suggest') }}" method="post">
+                        <button type="submit">Suggest Next Experiment</button>
+                    </form>
+                </div>
+            {% endif %}
+
+            <div class="best-box">
+                <h3>Best Result Found So Far:</h3>
+                {% if best_params %}
+                    <p><strong>Outcome:</strong> {{ "%.2f" | format(best_result) }}</p>
+                    <p><strong>Parameters:</strong></p>
+                    <ul>
+                        {% for name, value in best_params.items() %}
+                            <li><strong>{{ name }}:</strong> {{ value }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>No experiments recorded yet.</p>
+                {% endif %}
+            </div>
+
+            {% if param_importance %}
+                <div class="importance-box">
+                    <h3>Parameter Importance:</h3>
+                    <p>Based on current data, these parameters have the most impact on outcomes:</p>
+                    {% for name, score in param_importance.items()|sort(attribute='1', reverse=True) %}
+                        <div>
+                            <strong>{{ name }}:</strong> {{ "%.1f" | format(score) }}%
+                            <div class="importance-bar" style="width: {{ score }}%;"></div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="section results-section">
+            <h2>Experiment History & Progress</h2>
+            
+            <div class="tab-container">
+                <div class="tab-buttons">
+                    <div class="tab-button active" onclick="openTab(event, 'tab-table')">Data Table</div>
+                    <div class="tab-button" onclick="openTab(event, 'tab-plot')">Visualization</div>
+                </div>
+                
+                <div class="tab-content">
+                    <div id="tab-table" class="tab-panel active">
+                        {% if experiment_history %}
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        {% for name in param_names %}
+                                            <th>{{ name }}</th>
+                                        {% endfor %}
+                                        <th>Outcome</th>
+                                        <th>Source</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for exp in experiment_history %}
+                                        <tr>
+                                            <td>{{ loop.index }}</td>
+                                            {% for name in param_names %}
+                                                <td>{{ exp["params"][name] }}</td>
+                                            {% endfor %}
+                                            <td>
+                                                {% if exp["outcome"] is not none %}
+                                                    {{ "%.2f" | format(exp["outcome"]) }}
+                                                {% else %}
+                                                    <i>Pending</i>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if loop.index <= 10 %}
+                                                    <span class="kb-badge">KB</span>
+                                                {% else %}
+                                                    New
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <p>No experiments suggested or recorded yet.</p>
+                        {% endif %}
+                    </div>
+                    
+                    <div id="tab-plot" class="tab-panel">
+                        <div class="plot-container">
+                            <h3>Progress Visualization</h3>
+                            {% if plot_url %}
+                                <img src="{{ plot_url }}" alt="Experiment Progress Plot">
+                                <p><small>The red dashed line shows the best outcome achieved so far.</small></p>
+                            {% else %}
+                                <p>Run more experiments to see the progress plot.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="explanation-box">
+                <h3>How LabNavigator AI Works:</h3>
+                <p>This system uses Bayesian optimization to intelligently navigate the experimental space of CRISPR gene editing parameters. By learning from both published research (Knowledge Base) and your new experimental results, it continuously refines its understanding of which parameter combinations are most likely to yield high editing efficiency.</p>
+                <p>The system starts with knowledge from published experiments and then suggests new experiments that are most informative for finding optimal conditions, reducing the total number of experiments needed by up to 67%.</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>LabNavigator AI MVP | Developed by the LabNavigator Team | &copy; 2025</p>
+    </div>
+
+    <script>
+        function openTab(evt, tabName) {
+            // Hide all tab panels
+            var tabPanels = document.getElementsByClassName("tab-panel");
+            for (var i = 0; i < tabPanels.length; i++) {
+                tabPanels[i].className = tabPanels[i].className.replace(" active", "");
+            }
+            
+            // Remove active class from all tab buttons
+            var tabButtons = document.getElementsByClassName("tab-button");
+            for (var i = 0; i < tabButtons.length; i++) {
+                tabButtons[i].className = tabButtons[i].className.replace(" active", "");
+            }
+            
+            // Show the selected tab panel and mark button as active
+            document.getElementById(tabName).className += " active";
+            evt.currentTarget.className += " active";
+        }
+    </script>
+</body>
+</html>

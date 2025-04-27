@@ -1,0 +1,13 @@
+# Simulated Knowledge Base for LabNavigator AI MVP
+# Columns: gRNA_Selection,Delivery_Method,Cell_Line,Cas9_Concentration_nM,gRNA_Concentration_nM,Incubation_Time_hr,Outcome_Efficiency
+"gRNA_A","Lipofection","HEK293T",150,100,48,65.5
+"gRNA_B","Electroporation","HEK293T",200,150,72,72.1
+"gRNA_C","Viral Vector","HeLa",500,400,48,85.3
+"gRNA_A","Electroporation","MCF7",300,250,60,55.0
+"gRNA_D","Lipofection","HeLa",600,500,72,78.9
+"gRNA_E","Viral Vector","MCF7",450,450,48,91.2
+"gRNA_B","Lipofection","MCF7",250,200,72,68.7
+"gRNA_C","Electroporation","HEK293T",700,600,60,75.4
+"gRNA_D","Viral Vector","HEK293T",400,350,48,88.0
+"gRNA_E","Lipofection","HeLa",350,300,72,70.1
+
